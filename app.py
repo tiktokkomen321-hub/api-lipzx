@@ -398,41 +398,48 @@ def get_token(uid, password, region, account_name, password_prefix, is_ghost, th
 
 def create_single_account(args):
     region, name_prefix, password_prefix, is_ghost, threshold = args
-    try:
-        rand_part = "".join(random.choices("0123456789ABCDEF", k=16))
-        password = f"{password_prefix}_{rand_part}"
-        
-        url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
-        payload = {
-            "app_id": 100067,
-            "client_type": 2,
-            "password": password,
-            "source": 2
-        }
-        body_json = json.dumps(payload, separators=(",", ":"))
-        signature = hmac.new(HEX_KEY, body_json.encode("utf-8"), hashlib.sha256).hexdigest()
-        
-        headers = {
-            "User-Agent": WAFBypass.get_ua(),
-            "Connection": "Keep-Alive",
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "Authorization": f"Signature {signature}",
-            "Content-Type": "application/json; charset=utf-8",
-            "Host": "100067.connect.garena.com",
-            "X-Forwarded-For": FastIPSpoofer.get_ip(),
-            "X-Real-IP": FastIPSpoofer.get_ip(),
-        }
-        
-        resp = request_retry('POST', url, headers=headers, data=body_json)
-        if resp and resp.status_code == 200:
-            res = resp.json()
-            if "data" in res and "uid" in res["data"]:
-                uid = res["data"]["uid"]
-                return get_token(uid, password, region, name_prefix, password_prefix, is_ghost, threshold)
-        return None
-    except:
-        return None
+
+    # Retry the complete pipeline on transient failures so callers see
+    # fewer None results.
+    for retry_no in range(5):
+        try:
+            rand_part = "".join(random.choices("0123456789ABCDEF", k=16))
+            password = f"{password_prefix}_{rand_part}"
+            
+            url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
+            payload = {
+                "app_id": 100067,
+                "client_type": 2,
+                "password": password,
+                "source": 2
+            }
+            body_json = json.dumps(payload, separators=(",", ":"))
+            signature = hmac.new(HEX_KEY, body_json.encode("utf-8"), hashlib.sha256).hexdigest()
+            
+            headers = {
+                "User-Agent": WAFBypass.get_ua(),
+                "Connection": "Keep-Alive",
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "Authorization": f"Signature {signature}",
+                "Content-Type": "application/json; charset=utf-8",
+                "Host": "100067.connect.garena.com",
+                "X-Forwarded-For": FastIPSpoofer.get_ip(),
+                "X-Real-IP": FastIPSpoofer.get_ip(),
+            }
+            
+            resp = request_retry('POST', url, headers=headers, data=body_json)
+            if resp and resp.status_code == 200:
+                res = resp.json()
+                if "data" in res and "uid" in res["data"]:
+                    uid = res["data"]["uid"]
+                    return get_token(uid, password, region, name_prefix, password_prefix, is_ghost, threshold)
+            return None
+        except:
+            if retry_no < 4:
+                time.sleep(0.35 * (retry_no + 1))
+                continue
+            return None
 
 # ---------------- API ENDPOINTS ---------------- #
 @app.route('/', methods=['GET', 'OPTIONS'])
@@ -491,7 +498,7 @@ def generate_accounts():
     results = []
     rare_accounts = []
     max_workers = min(count, 20)
-    max_attempts = count * 3
+    max_attempts = count * 5
     attempts = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
