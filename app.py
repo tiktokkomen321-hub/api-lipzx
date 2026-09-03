@@ -436,7 +436,7 @@ def create_acc(region, name_prefix, password_prefix, is_ghost=False):
     session = get_session()
     
     # Step 1: Guest Register
-    url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
+    url = "https://ffmconnect.ppmainecoonghj.com/api/v2/oauth/guest:register"
     payload = {
         "app_id": 100067,
         "client_type": 2,
