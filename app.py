@@ -440,7 +440,7 @@ def create_acc(region, name_prefix, password_prefix, is_ghost=False):
     payload = {
         "app_id": 100067,
         "client_type": 2,
-        "password": AGE,
+        "password": MARUF,
         "source": 2
     }
     
