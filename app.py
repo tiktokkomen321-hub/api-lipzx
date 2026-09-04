@@ -513,11 +513,24 @@ def generate_accounts():
 
             for future in concurrent.futures.as_completed(futures):
                 attempts += 1
-                res = future.result()
-                if res and res.get('status') == "success":
-                    results.append(res)
-                    if res.get('is_rare'):
-                        rare_accounts.append(res)
+                try:
+                    res = future.result()
+                except Exception:
+                    # Error worker langsung di-skip tanpa ditampilkan/disimpan.
+                    continue
+
+                # Hanya hasil valid/success yang boleh masuk hasil atau disimpan.
+                if not res or res.get('status') != "success":
+                    continue
+
+                # Pastikan account_id juga valid; N/A/None/error tidak diteruskan.
+                account_id = res.get('account_id')
+                if not account_id or str(account_id).upper() in ("N/A", "NONE", "ERROR"):
+                    continue
+
+                results.append(res)
+                if res.get('is_rare'):
+                    rare_accounts.append(res)
 
                 if len(results) >= count:
                     break
